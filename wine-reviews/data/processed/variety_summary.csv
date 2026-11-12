@@ -1,0 +1,75 @@
+variety,n,avg_points,median_price,avg_value
+Portuguese Red,1440,88.72,16.0,1.87
+Grüner Veltliner,714,89.27,21.0,1.7
+Blaufränkisch,139,89.5,24.0,1.55
+Muscat,111,88.65,18.0,1.28
+Touriga Nacional,119,88.51,21.0,1.15
+Chenin Blanc,457,88.01,16.0,1.14
+Portuguese White,620,87.0,12.0,1.11
+Riesling,3583,88.68,20.0,1.05
+Sémillon,144,88.08,20.0,0.9
+Sangiovese Grosso,870,90.33,55.0,0.79
+Pinot Blanc,335,87.44,17.0,0.78
+Pinot Gris,899,87.83,18.0,0.76
+Mencía,122,88.31,19.5,0.74
+Tinta de Toro,141,89.21,27.0,0.72
+Gamay,373,87.17,16.0,0.69
+Gewürztraminer,681,88.07,20.0,0.69
+Zweigelt,138,87.52,18.0,0.63
+Bordeaux-style White Blend,856,89.36,17.0,0.56
+Nero d'Avola,317,87.55,18.0,0.51
+Garganega,209,87.16,17.0,0.51
+Aglianico,258,88.57,28.0,0.49
+Shiraz,1254,88.26,22.0,0.48
+Fiano,115,88.03,24.0,0.47
+Grillo,104,86.93,15.0,0.43
+Rhône-style Red Blend,1046,88.26,26.0,0.37
+Sauvignon,177,87.76,22.0,0.36
+Albariño,365,87.34,19.0,0.33
+Rosé,1910,86.65,16.0,0.21
+Montepulciano,167,87.47,19.0,0.21
+Rhône-style White Blend,289,88.08,25.0,0.2
+Sauvignon Blanc,4033,86.87,17.0,0.18
+Malbec,1968,87.46,19.0,0.18
+Bonarda,101,86.29,15.0,0.15
+Sparkling Blend,1315,87.49,20.0,0.1
+Syrah,3661,88.41,30.0,0.09
+Bordeaux-style Red Blend,5170,89.49,35.0,0.07
+White Blend,1858,87.06,17.0,0.07
+Verdejo,206,86.24,14.0,0.06
+Roussanne,115,87.78,24.0,0.04
+Nebbiolo,1339,90.23,56.0,-0.01
+Chardonnay,9159,87.77,25.0,-0.02
+Viognier,859,87.22,20.0,-0.09
+Red Blend,6483,88.09,28.0,-0.09
+"Corvina, Rondinella, Molinara",1118,88.54,35.0,-0.1
+G-S-M,100,87.95,28.0,-0.11
+Vermentino,138,86.89,18.0,-0.11
+Pinotage,134,86.65,17.0,-0.12
+Moscato,325,86.12,14.0,-0.16
+Pinot Noir,9282,88.84,40.0,-0.18
+Sangiovese,2152,87.99,28.0,-0.2
+Glera,342,86.54,18.0,-0.2
+Prosecco,354,86.5,18.0,-0.2
+Pinot Grigio,831,85.82,14.0,-0.23
+Grenache,390,87.9,28.0,-0.27
+Port,707,88.54,37.0,-0.28
+Carmenère,496,86.28,14.0,-0.29
+Barbera,635,87.38,23.0,-0.3
+Cabernet Sauvignon-Merlot,158,87.16,20.0,-0.31
+Garnacha,261,85.63,12.0,-0.33
+Cabernet Blend,188,89.21,46.0,-0.38
+Cabernet Sauvignon,8270,88.17,35.0,-0.39
+Mourvèdre,125,87.88,30.0,-0.44
+Dolcetto,191,86.67,19.0,-0.46
+Tempranillo Blend,485,87.36,23.0,-0.5
+Primitivo,186,86.81,20.0,-0.53
+Tempranillo,1622,86.75,20.0,-0.57
+Champagne Blend,811,89.63,55.0,-0.6
+Torrontés,222,84.99,12.0,-0.61
+Cabernet Franc,883,87.53,28.0,-0.64
+Petit Verdot,153,88.06,35.0,-0.66
+Merlot,3178,86.49,20.0,-0.81
+Petite Sirah,584,87.02,28.0,-0.88
+Meritage,202,87.57,35.0,-0.96
+Zinfandel,2407,86.75,25.0,-0.98

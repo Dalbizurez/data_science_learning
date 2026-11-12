@@ -1,0 +1,4 @@
+paso,filas_antes,filas_despues,afectadas,nota
+Eliminar columna índice,150930,150930,0,Unnamed: 0 no aporta información
+Duplicados exactos,150930,97851,53079,Todas las columnas iguales (sin índice)
+Duplicados por descripción,97851,97821,30,Misma reseña repetida: no son vinos distintos

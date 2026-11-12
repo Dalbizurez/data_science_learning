@@ -1,0 +1,364 @@
+---
+title: "Reseñas de vinos: calidad, precio y descriptores de sabor"
+subtitle: "Proyecto Final: Ciencia de Datos con R y Python"
+author: "Tu nombre (trabajo individual)"
+date: today
+lang: es
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    code-fold: true
+    code-tools: true
+    embed-resources: true
+    theme: cosmo
+execute:
+  echo: true
+  warning: false
+  message: false
+---
+
+```{r}
+#| label: setup-r
+#| include: false
+library(tidyverse)
+library(reticulate)
+library(skimr)
+library(rstatix)
+library(scales)
+library(knitr)
+
+# Ajusta si usas un entorno virtual:
+# use_virtualenv("venv", required = TRUE)
+theme_set(theme_minimal(base_size = 12))
+```
+
+# Introducción
+
+## Contexto
+
+Las reseñas de vinos de revistas especializadas influyen en las decisiones de compra y en el precio de las botellas. Este proyecto analiza más de 150 mil reseñas con dos preguntas centrales: **qué relación existe entre el precio y la puntuación**, y **qué características distinguen a los vinos mejor valorados**.
+
+## Preguntas de investigación
+
+1. ¿Qué países y variedades obtienen mejores puntuaciones y a qué precio?
+2. ¿Existe relación entre el precio y la puntuación? ¿Cuánto cuesta ganar puntos adicionales?
+3. ¿Qué variedades ofrecen mejor relación calidad-precio?
+4. ¿Qué palabras de la descripción se asocian a puntuaciones altas y bajas?
+5. ¿Difiere significativamente la puntuación entre países?
+
+# Datos
+
+## Origen y licencia
+
+- **Fuente:** *Wine Reviews*, Kaggle (datos de WineEnthusiast, recopilados por Zack Thoutt). Archivo `winemag-data_first150k.csv`.
+- **URL:** <https://www.kaggle.com/datasets/zynicide/wine-reviews>
+- **Licencia:** verificar en la página del dataset (publicado bajo CC BY-NC-SA 4.0 en Kaggle) y uso estrictamente académico.
+- **Trazabilidad:** el archivo se incluye en `data/raw/` y todo el procesamiento se ejecuta con `scripts/01_ingesta_limpieza.py`.
+
+## Estructura
+
+Cada fila es una reseña. Variables originales: `country`, `description`, `designation`, `points`, `price`, `province`, `region_1`, `region_2`, `variety`, `winery` y un índice heredado del CSV.
+
+## Limitaciones y sesgos
+
+- **Sesgo de selección:** solo aparecen vinos con 80 puntos o más; no hay vinos "malos".
+- **Una sola fuente de críticos:** las puntuaciones reflejan los criterios de un único medio.
+- **Sobrerrepresentación de EE. UU.** y de Europa occidental.
+- **Sin fecha:** no hay añada ni fecha de reseña, por lo que no hay análisis temporal; los precios están en USD sin año de referencia.
+- **Precio faltante** en ~9 % de las reseñas.
+
+# Metodología y preparación de datos (Python)
+
+Se utilizó **Python** para la ingesta, limpieza y procesamiento de texto (pandas, scikit-learn) y **R** para el análisis estadístico y las visualizaciones (tidyverse, rstatix, ggplot2).
+
+## Ejecución de la limpieza
+
+```{python}
+#| label: run-cleaning
+import subprocess, sys
+from pathlib import Path
+import pandas as pd
+
+root = Path("..").resolve()
+res = subprocess.run([sys.executable, "scripts/01_ingesta_limpieza.py"],
+                     cwd=root, capture_output=True, text=True)
+print(res.stdout[-1500:])
+if res.returncode != 0:
+    raise RuntimeError(res.stderr)
+```
+
+## Bitácora de decisiones
+
+```{python}
+#| label: cleaning-log
+log = pd.read_csv(root / "data/processed/cleaning_log.csv")
+log
+```
+
+**Decisiones y justificación:**
+
+| Decisión | Justificación |
+|---|---|
+| Eliminar la columna índice | El índice hacía que ninguna fila pareciera duplicada; al quitarlo aparecen más de 53.000 duplicados exactos. |
+| Eliminar duplicados por `description` | Una misma reseña repetida no representa un vino distinto y sesga los promedios. |
+| Descartar `region_2` | Cerca de 60 % de valores faltantes. |
+| No imputar `price` | Imputar sesgaría la relación precio-puntos; se conserva el indicador `has_price`. |
+| Trabajar con `log(price)` | El precio tiene una cola muy larga (4 a 2.300 USD). |
+| Marcar outliers (IQR sobre log-precio) sin eliminarlos | Son vinos de lujo reales; se evalúa la sensibilidad de los resultados. |
+
+## Variables derivadas
+
+- `price_segment`: Económico, Medio, Premium, Lujo.
+- `points_band`: 80-84, 85-89, 90-94, 95-100.
+- `value_score`: puntos observados menos puntos esperados para su precio (residuo de la regresión `points ~ log(price)`). Valores positivos indican mejor relación calidad-precio.
+- `desc_len`: número de palabras de la descripción.
+- `variety_top`: 20 variedades más frecuentes y "Otras".
+
+# Análisis exploratorio (R)
+
+```{r}
+#| label: load-data
+wine <- read_csv("../data/processed/wine_clean.csv", show_col_types = FALSE) |>
+  mutate(points_band = factor(points_band, levels = c("80-84","85-89","90-94","95-100")),
+         price_segment = factor(price_segment,
+           levels = c("Económico (<=15)","Medio (15-30)","Premium (30-60)","Lujo (>60)")))
+
+stopifnot(nrow(wine) > 5000, all(wine$points >= 80 & wine$points <= 100))
+glimpse(wine)
+```
+
+## Estadísticas descriptivas
+
+```{r}
+#| label: descriptives
+wine |>
+  summarise(across(c(points, price, desc_len),
+                   list(media = ~mean(.x, na.rm = TRUE), mediana = ~median(.x, na.rm = TRUE),
+                        sd = ~sd(.x, na.rm = TRUE), min = ~min(.x, na.rm = TRUE),
+                        max = ~max(.x, na.rm = TRUE)))) |>
+  pivot_longer(everything(), names_to = c("variable", "stat"), names_sep = "_(?=[^_]+$)") |>
+  pivot_wider(names_from = stat, values_from = value) |>
+  kable(digits = 2)
+```
+
+```{r}
+#| label: missing
+wine |> summarise(across(everything(), ~mean(is.na(.x)))) |>
+  pivot_longer(everything(), names_to = "variable", values_to = "pct_na") |>
+  filter(pct_na > 0) |>
+  kable(digits = 3, caption = "Proporción de valores faltantes tras la limpieza")
+```
+
+## Distribuciones
+
+```{r}
+#| label: fig-dist
+#| fig-cap: "Distribución de puntos (izquierda) y precio en escala logarítmica (derecha)."
+#| fig-width: 10
+#| fig-height: 4
+library(patchwork)
+p1 <- ggplot(wine, aes(points)) + geom_histogram(binwidth = 1, fill = "#722F37", colour = "white") +
+  labs(x = "Puntos", y = "Reseñas")
+p2 <- ggplot(wine, aes(price)) + geom_histogram(bins = 60, fill = "#C9A227", colour = "white", na.rm = TRUE) +
+  scale_x_log10(labels = dollar) + labs(x = "Precio (USD, log)", y = "Reseñas")
+p1 + p2
+```
+
+Los puntos se concentran entre 85 y 91 con un mínimo en 80 (efecto del sesgo de selección). El precio es muy asimétrico: la mediana ronda los 25 USD pero hay vinos de más de 2.000 USD.
+
+## Países y variedades
+
+```{r}
+#| label: fig-country
+#| fig-cap: "Puntuación media y precio mediano por país (países con al menos 500 reseñas)."
+wine |>
+  group_by(country) |>
+  summarise(n = n(), pts = mean(points), precio = median(price, na.rm = TRUE)) |>
+  filter(n >= 500) |>
+  ggplot(aes(precio, pts, size = n, label = country)) +
+  geom_point(colour = "#722F37", alpha = .7) +
+  ggrepel::geom_text_repel(size = 3, show.legend = FALSE) +
+  scale_x_continuous(labels = dollar) +
+  labs(x = "Precio mediano (USD)", y = "Puntos promedio", size = "Reseñas")
+```
+
+```{r}
+#| label: tbl-variety
+#| tbl-cap: "Variedades con mejor relación calidad-precio (mínimo 100 reseñas)."
+wine |>
+  filter(!is.na(value_score)) |>
+  group_by(variety) |>
+  summarise(n = n(), puntos = mean(points), precio_mediano = median(price), valor = mean(value_score)) |>
+  filter(n >= 100) |>
+  slice_max(valor, n = 10) |>
+  kable(digits = 2)
+```
+
+## Relación precio-puntuación
+
+```{r}
+#| label: fig-price-points
+#| fig-cap: "Precio (escala log) según puntuación. La relación es positiva pero con rendimientos decrecientes."
+wine |> filter(!is.na(price)) |>
+  ggplot(aes(factor(points), price)) +
+  geom_boxplot(fill = "#E8D5B7", outlier.alpha = .1) +
+  scale_y_log10(labels = dollar) +
+  labs(x = "Puntos", y = "Precio (USD, log)")
+```
+
+```{r}
+#| label: cor
+wine |> filter(!is.na(price)) |> cor_test(points, log_price, method = "spearman")
+```
+
+```{r}
+#| label: fig-segment
+#| fig-cap: "Composición de cada segmento de precio por banda de puntuación."
+wine |> filter(!is.na(price_segment)) |>
+  count(price_segment, points_band) |>
+  group_by(price_segment) |> mutate(p = n / sum(n)) |>
+  ggplot(aes(price_segment, p, fill = points_band)) +
+  geom_col() + scale_y_continuous(labels = percent) +
+  scale_fill_brewer(palette = "RdPu") +
+  labs(x = NULL, y = "Proporción", fill = "Puntos")
+```
+
+## Longitud de la descripción
+
+```{r}
+#| label: desc-len
+wine |> group_by(points_band) |> summarise(palabras_medias = mean(desc_len)) |> kable(digits = 1)
+```
+
+# Análisis inferencial
+
+## ¿Difiere la puntuación entre países?
+
+Se comparan los 8 países con más reseñas. Dado que `points` es ordinal y no normal, se emplea la prueba de Kruskal-Wallis con post-hoc de Dunn (Bonferroni).
+
+```{r}
+#| label: kruskal
+top8 <- wine |> count(country, sort = TRUE) |> slice_head(n = 8) |> pull(country)
+d8 <- wine |> filter(country %in% top8)
+
+d8 |> kruskal_test(points ~ country)
+d8 |> kruskal_effsize(points ~ country)
+```
+
+```{r}
+#| label: dunn
+d8 |> dunn_test(points ~ country, p.adjust.method = "bonferroni") |>
+  arrange(p.adj) |> select(group1, group2, statistic, p.adj, p.adj.signif) |>
+  slice_head(n = 10) |> kable(digits = 4)
+```
+
+Con muestras tan grandes casi cualquier diferencia es estadísticamente significativa, por lo que se interpreta el **tamaño del efecto** (épsilon cuadrado) y no solo el p-valor.
+
+## ¿Se asocian precio y puntuación?
+
+```{r}
+#| label: chisq
+tab <- table(wine$price_segment, wine$points_band)
+chisq.test(tab)
+rstatix::cramer_v(tab)
+```
+
+```{r}
+#| label: lm
+m <- lm(points ~ log_price, data = filter(wine, !is.na(price)))
+summary(m)
+```
+
+Interpretación: cada vez que el precio se multiplica por *e* (~2,7), la puntuación esperada aumenta en el coeficiente de `log_price` puntos. Es un análisis **inferencial**, no predictivo.
+
+```{r}
+#| label: sensibilidad
+# Sensibilidad: ¿cambia la relación sin los outliers de precio?
+m2 <- lm(points ~ log_price, data = filter(wine, !is.na(price), !price_outlier))
+tibble(modelo = c("Con outliers", "Sin outliers"),
+       pendiente = c(coef(m)[2], coef(m2)[2]),
+       r2 = c(summary(m)$r.squared, summary(m2)$r.squared)) |> kable(digits = 3)
+```
+
+```{r}
+#| label: resid
+#| fig-cap: "Diagnóstico de residuos del modelo lineal."
+#| fig-height: 4
+tibble(fit = fitted(m), res = resid(m)) |> slice_sample(n = 20000) |>
+  ggplot(aes(fit, res)) + geom_point(alpha = .1) + geom_hline(yintercept = 0, colour = "red") +
+  labs(x = "Valores ajustados", y = "Residuos")
+```
+
+# Descriptores de sabor: texto (Python)
+
+Se calculó TF-IDF sobre las descripciones (unigramas y bigramas, sin stopwords genéricas del dominio) y, para cada banda de puntuación, los términos con mayor diferencia respecto del promedio global.
+
+```{python}
+#| label: fig-terms
+#| fig-cap: "Términos más distintivos por banda de puntuación."
+#| fig-width: 10
+#| fig-height: 6
+import matplotlib.pyplot as plt
+
+terms = pd.read_csv(root / "data/processed/terms_by_band.csv")
+bands = terms["points_band"].unique()
+fig, axes = plt.subplots(1, len(bands), figsize=(14, 5), sharex=False)
+for ax, b in zip(axes, bands):
+    t = terms[terms.points_band == b].nlargest(10, "score").iloc[::-1]
+    ax.barh(t["term"], t["score"], color="#722F37")
+    ax.set_title(f"Banda {b}")
+plt.tight_layout()
+plt.show()
+```
+
+Los vinos de 80-84 se describen con términos como *simple*, *sweet* o *sugary*; los de 95-100 incluyen *great*, *years* (potencial de guarda) y *barrel sample*.
+
+# Integración R y Python
+
+Los resultados de Python se consumen en R y viceversa mediante `reticulate`:
+
+```{python}
+#| label: py-to-r
+resumen_py = pd.read_csv(root / "data/processed/country_summary.csv").head(10)
+```
+
+```{r}
+#| label: r-from-py
+py$resumen_py |> kable(digits = 2, caption = "Tabla creada en Python, mostrada desde R")
+```
+
+# Discusión
+
+- La puntuación y el precio se asocian positivamente (correlación de Spearman cercana a 0,6), pero con rendimientos decrecientes: subir de 85 a 90 puntos cuesta mucho menos que de 95 a 100.
+- Los países difieren en puntuación, aunque el tamaño del efecto es pequeño frente a la variabilidad dentro de cada país.
+- Las mejores relaciones calidad-precio aparecen en variedades poco conocidas (p. ej., Portuguese Red, Grüner Veltliner).
+- **Limitaciones:** sesgo de selección (solo 80+), un único medio, sin dimensión temporal y precios sin fecha. Las conclusiones describen asociaciones, no causalidad.
+
+# Conclusiones
+
+1. La limpieza fue crítica: más de un tercio de las filas originales eran duplicados.
+2. El precio explica una parte importante pero no total de la puntuación.
+3. Existen variedades con puntuación superior a la esperada para su precio.
+4. El lenguaje de las reseñas cambia de forma sistemática con la puntuación.
+5. El dashboard interactivo (Power BI) permite explorar estas relaciones por país, variedad y segmento de precio.
+
+# Referencias
+
+- Thoutt, Z. *Wine Reviews*. Kaggle. <https://www.kaggle.com/datasets/zynicide/wine-reviews>
+- R Core Team (2024). *R: A Language and Environment for Statistical Computing*.
+- Pedregosa et al. (2011). Scikit-learn: Machine Learning in Python. *JMLR* 12.
+
+# Anexos
+
+## Información de sesión
+
+```{r}
+sessionInfo()
+```
+
+```{python}
+import sys, pandas, sklearn, matplotlib
+print(sys.version); print("pandas", pandas.__version__, "| scikit-learn", sklearn.__version__)
+```

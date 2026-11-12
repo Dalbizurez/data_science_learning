@@ -1,0 +1,46 @@
+---
+title: "Análisis reseñas de vino"
+format: html
+editor: visual
+toc: true
+code-fold: true
+execute: 
+  echo: false
+
+lang: sp
+---
+
+```{r}
+library(tidyverse)
+library(naniar)
+```
+
+# Wine Revies
+
+## Acerca de
+
+Dataset que nació del deseo de crear un modelo predictivo que pueda identificar vinos como lo haría un sommelier.
+
+Al dataset lo componen datos como la región en la que fue producido, la puntuación asignada en WineEnthusiast (Revista especializada en el mundo del vino), así como el tipo de uva
+
+## Preguntas de exploración
+
+- ¿Existe una correlación entre el precio del vino y su puntuación?
+- ¿Qué regiones cuentan con las mejores puntuaciones?
+- ¿Afecta el tipo de uva en la puntuación?
+- ¿Cuál es la distribución de de puntuaciones y precios?
+
+# Conociendo el dataset
+
+```{r}
+#| output: asis
+
+wine_raw = read.csv("./data/raw/winemag-data_first150k.csv")
+
+cat("**Número de Registros/Filas:**",nrow(wine_raw), "\n")
+cat("\n**Número de Columnas:**", ncol(wine_raw), "\n\n")
+
+knitr::kable(wine_raw[1])
+knitr::kable(wine_raw[-1])
+
+```
